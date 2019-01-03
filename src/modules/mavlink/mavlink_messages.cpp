@@ -2318,7 +2318,7 @@ protected:
 
 		mavlink_odometry_t msg = {};
 
-		if (_send_odom_loopback.get()) {
+		if (_mavlink->odometry_loopback_enabled()) {
 			odom_updated = _vodom_sub->update(&_vodom_time, &odom);
 			// frame matches the external vision system
 			msg.frame_id = MAV_FRAME_VISION_NED;
@@ -2361,8 +2361,8 @@ protected:
 			msg.yawspeed = odom.yawspeed;
 
 			// get the covariance matrix size
-			const size_t POS_URT_SIZE = sizeof(odom.pose_covariance) / sizeof(odom.pose_covariance[0]);
-			const size_t VEL_URT_SIZE = sizeof(odom.velocity_covariance) / sizeof(odom.velocity_covariance[0]);
+			static constexpr size_t POS_URT_SIZE = sizeof(odom.pose_covariance) / sizeof(odom.pose_covariance[0]);
+			static constexpr size_t VEL_URT_SIZE = sizeof(odom.velocity_covariance) / sizeof(odom.velocity_covariance[0]);
 			static_assert(POS_URT_SIZE == (sizeof(msg.pose_covariance) / sizeof(msg.pose_covariance[0])),
 				      "Odometry Pose Covariance matrix URT array size mismatch");
 			static_assert(VEL_URT_SIZE == (sizeof(msg.twist_covariance) / sizeof(msg.twist_covariance[0])),
@@ -2687,6 +2687,8 @@ protected:
 					msg.approach_x = 0.0f;
 					msg.approach_y = 0.0f;
 					msg.approach_z = 0.0f;
+
+					msg.time_usec = home.timestamp;
 
 					mavlink_msg_home_position_send_struct(_mavlink->get_channel(), &msg);
 
@@ -3407,7 +3409,7 @@ protected:
 
 			/* send override message - harmless if connected to GCS, allows to connect a board to a Linux system */
 			/* http://mavlink.org/messages/common#RC_CHANNELS_OVERRIDE */
-			mavlink_rc_channels_override_t over;
+			mavlink_rc_channels_override_t over = {};
 			over.target_system = mavlink_system.sysid;
 			over.target_component = 0;
 			over.chan1_raw = msg.chan1_raw;
