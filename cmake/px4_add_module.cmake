@@ -42,7 +42,6 @@ include(px4_base)
 #	Usage:
 #		px4_add_module(MODULE <string>
 #			MAIN <string>
-#			[ STACK <string> ] !!!!!DEPRECATED, USE STACK_MAIN INSTEAD!!!!!!!!!
 #			[ STACK_MAIN <string> ]
 #			[ STACK_MAX <string> ]
 #			[ COMPILE_FLAGS <list> ]
@@ -87,7 +86,7 @@ function(px4_add_module)
 
 	px4_parse_function_args(
 		NAME px4_add_module
-		ONE_VALUE MODULE MAIN STACK STACK_MAIN STACK_MAX PRIORITY
+		ONE_VALUE MODULE MAIN STACK_MAIN STACK_MAX PRIORITY
 		MULTI_VALUE COMPILE_FLAGS LINK_FLAGS SRCS INCLUDES DEPENDS MODULE_CONFIG
 		OPTIONS EXTERNAL DYNAMIC UNITY_BUILD
 		REQUIRED MODULE MAIN
@@ -117,6 +116,10 @@ function(px4_add_module)
 
 		add_library(${MODULE} STATIC EXCLUDE_FROM_ALL ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_unity.cpp)
 		target_include_directories(${MODULE} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+		if(COMPILE_FLAGS)
+			target_compile_options(${MODULE}_original PRIVATE ${COMPILE_FLAGS})
+		endif()
 
 		if(DEPENDS)
 			# using target_link_libraries for dependencies provides linking
@@ -152,7 +155,7 @@ function(px4_add_module)
 	add_dependencies(${MODULE} uorb_headers)
 
 	if(NOT DYNAMIC)
-		target_link_libraries(${MODULE} PRIVATE prebuild_targets parameters_interface platforms__common px4_layer systemlib)
+		target_link_libraries(${MODULE} PRIVATE prebuild_targets parameters_interface px4_layer px4_platform systemlib)
 		set_property(GLOBAL APPEND PROPERTY PX4_MODULE_LIBRARIES ${MODULE})
 		set_property(GLOBAL APPEND PROPERTY PX4_MODULE_PATHS ${CMAKE_CURRENT_SOURCE_DIR})
 	endif()
@@ -162,7 +165,7 @@ function(px4_add_module)
 
 	# set defaults if not set
 	set(MAIN_DEFAULT MAIN-NOTFOUND)
-	set(STACK_MAIN_DEFAULT 1024)
+	set(STACK_MAIN_DEFAULT 2048)
 	set(PRIORITY_DEFAULT SCHED_PRIORITY_DEFAULT)
 
 	foreach(property MAIN STACK_MAIN PRIORITY)

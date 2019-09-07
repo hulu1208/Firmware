@@ -45,6 +45,7 @@
 #include <px4_posix.h>
 #include <px4_tasks.h>
 #include <px4_time.h>
+#include <px4_shutdown.h>
 
 #include <cstring>
 #include <float.h>
@@ -773,6 +774,7 @@ void Replay::run()
 		//to be in chronological order, so we need to check all subscriptions
 		uint64_t next_file_time = 0;
 		int next_msg_id = -1;
+		bool first_time = true;
 
 		for (size_t i = 0; i < _subscriptions.size(); ++i) {
 			const Subscription *subscription = _subscriptions[i];
@@ -782,7 +784,8 @@ void Replay::run()
 			}
 
 			if (subscription->orb_meta && !subscription->ignored) {
-				if (next_file_time == 0 || subscription->next_timestamp < next_file_time) {
+				if (first_time || subscription->next_timestamp < next_file_time) {
+					first_time = false;
 					next_msg_id = (int)i;
 					next_file_time = subscription->next_timestamp;
 				}
@@ -845,7 +848,9 @@ void Replay::run()
 		PX4_INFO("Replay done (published %u msgs, %.3lf s)", nr_published_messages,
 			 (double)hrt_elapsed_time(&_replay_start_time) / 1.e6);
 
-		//TODO: should we close the log file & exit (optionally, by adding a parameter -q) ?
+		//TODO: add parameter -q?
+		replay_file.close();
+		px4_shutdown_request(false, false);
 	}
 
 	onExitMainLoop();

@@ -31,13 +31,16 @@
  *
  ****************************************************************************/
 
+#include <errno.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <cmath>
 
 #include <px4_tasks.h>
 #include <px4_getopt.h>
 #include <px4_posix.h>
-#include <errno.h>
-#include <cmath>	// NAN
 
 #include <uORB/uORB.h>
 #include <uORB/topics/actuator_controls.h>
@@ -51,7 +54,7 @@
 #include <lib/mixer/mixer.h>
 #include <lib/mixer/mixer_load.h>
 #include <parameters/param.h>
-#include <pwm_limit/pwm_limit.h>
+#include <output_limit/output_limit.h>
 #include <perf/perf_counter.h>
 
 #include "common.h"
@@ -95,7 +98,7 @@ px4_pollfd_struct_t _poll_fds[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS];
 uint32_t	_groups_required = 0;
 uint32_t	_groups_subscribed = 0;
 
-pwm_limit_t     _pwm_limit;
+output_limit_t     _pwm_limit;
 
 // esc parameters
 int32_t _pwm_disarmed;
@@ -265,7 +268,7 @@ void task_main(int argc, char *argv[])
 	_armed.armed = false;
 	_armed.prearmed = false;
 
-	pwm_limit_init(&_pwm_limit);
+	output_limit_init(&_pwm_limit);
 
 	while (!_task_should_exit) {
 
@@ -329,7 +332,7 @@ void task_main(int argc, char *argv[])
 			}
 
 			/* Switch off the PWM limit ramp for the calibration. */
-			_pwm_limit.state = PWM_LIMIT_STATE_ON;
+			_pwm_limit.state = OUTPUT_LIMIT_STATE_ON;
 		}
 
 		if (_mixer_group != nullptr) {
@@ -355,16 +358,16 @@ void task_main(int argc, char *argv[])
 			uint16_t pwm[actuator_outputs_s::NUM_ACTUATOR_OUTPUTS];
 
 			// TODO FIXME: pre-armed seems broken
-			pwm_limit_calc(_armed.armed,
-				       false/*_armed.prearmed*/,
-				       _outputs.noutputs,
-				       reverse_mask,
-				       disarmed_pwm,
-				       min_pwm,
-				       max_pwm,
-				       _outputs.output,
-				       pwm,
-				       &_pwm_limit);
+			output_limit_calc(_armed.armed,
+					  false/*_armed.prearmed*/,
+					  _outputs.noutputs,
+					  reverse_mask,
+					  disarmed_pwm,
+					  min_pwm,
+					  max_pwm,
+					  _outputs.output,
+					  pwm,
+					  &_pwm_limit);
 
 			if (_armed.lockdown || _armed.manual_lockdown) {
 				pwm_out->send_output_pwm(disarmed_pwm, _outputs.noutputs);
@@ -461,8 +464,6 @@ void task_main_trampoline(int argc, char *argv[])
 
 void start()
 {
-	ASSERT(_task_handle == -1);
-
 	_task_should_exit = false;
 
 	/* start the task */
@@ -474,7 +475,7 @@ void start()
 					  nullptr);
 
 	if (_task_handle < 0) {
-		warn("task start failed");
+		PX4_ERR("task start failed");
 		return;
 	}
 
